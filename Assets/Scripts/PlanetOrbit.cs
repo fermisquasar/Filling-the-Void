@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using System.Collections;
 using TMPro;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 
 public class PlanetOrbit: MonoBehaviour
 {
@@ -13,6 +14,8 @@ public class PlanetOrbit: MonoBehaviour
     public float speed = 0.5f; // Absolute speed, always positive
     public int direction = 1; // 1 for left, -1 for right
     private float angle = 0f; // Angle of the planet's movement
+
+    private bool isAnchored = false; // Tracks if planet is anchored
 
     // Cooldown management
     private Dictionary<string, float> cooldowns = new Dictionary<string, float>(); // Dictionary to track active cooldowns
@@ -46,6 +49,8 @@ public class PlanetOrbit: MonoBehaviour
 
     void Update()
     {
+        if(isAnchored) return; // prevent movement if anchored
+
         angle += speed * direction * Time.deltaTime; // Update planet's position along orbit
 
         // Keep the angle within 0 - 2π range to ensure a full loop
@@ -110,17 +115,16 @@ public class PlanetOrbit: MonoBehaviour
     {
         if (cooldowns.ContainsKey("anchor")) return; // Check if cooldown is active
 
-        float tempSpeed = speed; // Store current speed
-        speed = 0; // Stop movement
-        StartCoroutine(AnchorProcess(tempSpeed)); // Start anchor process
+        isAnchored = true; // Prevent movement
+        StartCoroutine(AnchorProcess()); // Start anchor process
     }
 
     // Handle anchor time and cooldown
-    IEnumerator AnchorProcess(float originalSpeed)
+    IEnumerator AnchorProcess()
     {
         StartCooldown("anchor", anchorTime, anchorTimeText); // Start anchortimer
         yield return new WaitForSeconds(anchorTime);
-        speed = originalSpeed; // Restore original speed
+        isAnchored = false; // Allow movement again
         StartCooldown("anchorCooldown", anchorCooldownTime, anchorCooldownText); // Start cooldown after anchoring
     }
 

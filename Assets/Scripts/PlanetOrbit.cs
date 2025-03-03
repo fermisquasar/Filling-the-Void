@@ -2,34 +2,51 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using TMPro;
+using System.Collections.Generic;
 
 public class PlanetOrbit: MonoBehaviour
 {
+    // Orbit properties
     public Transform barycenter; // The center of the orbit (void position)
-    public float semiMajorAxis = 5f; // The distance of the horizontal axis
-    public float semiMinorAxis = 3f; // The distance of the verical axis
-    public float orbitalSpeed = 0.5f; // The speed of the orbit
-    private float angle = 0f; // The angle that the object is moving
+    public float semiMajorAxis = 5f; // Horizaontal axis length
+    public float semiMinorAxis = 3f; // Vertical axis length
+    public float speed = 0.5f; // Absolute speed, always positive
+    public int direction = 1; // 1 for left, -1 for right
+    private float angle = 0f; // Angle of the planet's movement
 
-    private bool canChangeSpeed = true; // Speed cooldown status
-    public float speedCooldownTime = 1.5f; // 1.5 second cooldown for changing speed
+    // Cooldown management
+    private Dictionary<string, float> cooldowns = new Dictionary<string, float>(); // Dictionary to track active cooldowns
+    private bool isCooldownActive = false; // Prevents multiple coroutines instances from handling cooldowns
 
-    private bool canAnchorPlanet = true; // Anchor cooldown status
-    public float anchorCooldownTime = 5f; // 5 second cooldown for anchoring planet
+    //Cooldown durations
+    public float speedCooldownTime = 1.5f; // Changing speed
+    public float directionCooldownTime = 5; // Changing direction
+    public float anchorTime = 3f; // Anchor time
+    public float anchorCooldownTime = 5f; // Anchoring planet
 
-    public TMP_Text speedMeterText; // UI elemnt to display speed meter
-    public TMP_Text speedCooldownText; // UI element for speed cooldown timer
-    public TMP_Text anchorCooldownText; // UI element for anchor cooldown timer
+    //  UI elements
+    public TMP_Text speedMeterText; // Planet speed
+    public TMP_Text speedCooldownText; // Speed cooldown
+    public TMP_Text directionMeter; // Planet direction
+    public TMP_Text directionCooldownText; // Direction cooldown
+
+    public TMP_Text anchorTimeText; // Anchor time
+    public TMP_Text anchorCooldownText; // Anchor cooldown
 
     void Start()
     {
-        UpdateSpeedMeter(); // Set the speed meter correctly when the game starts
-        speedCooldownText.text = ""; // Make sure the speed cooldown text is blank when the game starts
+        // Initialize UI elements
+        UpdateSpeedMeter(); // Planet speed
+        UpdateDirectionMeter(); // Planet direction
+        speedCooldownText.text = ""; // Speed cooldown
+        anchorTimeText.text = ""; // Anchor time
+        anchorCooldownText.text = ""; // Anchor cooldown
+        directionCooldownText.text = ""; // Dirciton cooldown
     }
 
     void Update()
     {
-        angle += orbitalSpeed * Time.deltaTime; // Update the angle over time
+        angle += speed * direction * Time.deltaTime; // Update planet's position along orbit
 
         // Keep the angle within 0 - 2π range to ensure a full loop
         if (angle > Mathf.PI * 2)
@@ -37,67 +54,116 @@ public class PlanetOrbit: MonoBehaviour
             angle -= Mathf.PI * 2;
         }
 
-        //Calculate new positions
+        // Calculate new positions  based on ellipse equation
         float x = semiMajorAxis * Mathf.Cos(angle);
         float y = semiMinorAxis * Mathf.Sin(angle);
 
         transform.position = barycenter.position + new Vector3(x, y, 0); // Update planet's position relative to barycenter
     }
 
-    // Method to change speed
+    // Change planet spped
     public void ChangeSpeed(float change)
     {
-        // Check if speed cooldown is active
-        if(!canChangeSpeed) 
-        {
-            return;
-        }
+        if (cooldowns.ContainsKey("speed")) return; // Check if cooldown is active
 
-        orbitalSpeed += change; // Update speed by change
-
-        // Guarantee the planet does not stop. Checks if speed would be 0, if so change direction of planet in direction of change
-        if (orbitalSpeed == 0)
-        {
-            if (change > 0)
-            {   
-                orbitalSpeed = 0.5f;
-            } else {
-                orbitalSpeed = -0.5f;
-            }
-        }
-
-        orbitalSpeed = Mathf.Clamp(orbitalSpeed, -1.5f, 1.5f); // Cap speed between -2 and 2
-
-        UpdateSpeedMeter(); //Update UI meter
-        StartCoroutine(SpeedCooldown()); // Start speed cooldown
+        speed = Mathf.Clamp(speed + change, 0.25f, 0.75f); // Updates speed, min: 0.25 max: 0.75
+        UpdateSpeedMeter(); // Update speed UI
+        StartCooldown("speed", speedCooldownTime, speedCooldownText); // Start cooldown
     }
 
-    // UI Meter Update
+    // Speed meter update
     void UpdateSpeedMeter()
     {
-        int arrowCount = Mathf.RoundToInt(Mathf.Abs(orbitalSpeed * 2)); // 1 arrow per 0.5 speed
-        string direction = orbitalSpeed > 0 ? "→" : "←";
-        speedMeterText.text = new string(direction[0], arrowCount); // Update the text in the UI
+        int plusCount = Mathf.RoundToInt(speed * 4); // 1 arrow per 0.25 speed
+        speedMeterText.text = new string('+', plusCount);
     }
 
-    // Cooldown Coroutine
-    IEnumerator SpeedCooldown()
+    // Function to change planet direction
+    public void ChangeDirection()
     {
-        canChangeSpeed = false;
-        float remainingTime = speedCooldownTime;
+        if(cooldowns.ContainsKey("direction")) return; // Check if cooldown is active
 
-        // Display the remainingTime while there is still an speed cooldown
-        while (remainingTime > 0)
-        {
-            speedCooldownText.text = $"Cooldown: {remainingTime:F1}s";
-            yield return new WaitForSeconds(0.1f);
-            remainingTime -= 0.1f;
-        }
-
-        speedCooldownText.text = ""; // Hide text after speed cooldown
-        canChangeSpeed = true; // Allows the player to change the planet's speed again
+        direction *= -1; // Flip direction
+        UpdateDirectionMeter(); // Update direction UI
+        StartCooldown("direction", directionCooldownTime, directionCooldownText); // Start cooldown
     }
 
+    // Update direction meter UI
+    void UpdateDirectionMeter()
+    {
+        if (direction  == 1)
+        {
+            directionMeter.text = "<--";
+        }
+        else if (direction == -1)
+        {
+            directionMeter.text = "-->";
+        }
+        else 
+        {
+            directionMeter.text = "===";
+        }
+    }
 
+    // Anchor the planet in place
+    public void anchorPlanet()
+    {
+        if (cooldowns.ContainsKey("anchor")) return; // Check if cooldown is active
 
+        float tempSpeed = speed; // Store current speed
+        speed = 0; // Stop movement
+        StartCoroutine(AnchorProcess(tempSpeed)); // Start anchor process
+    }
+
+    // Handle anchor time and cooldown
+    IEnumerator AnchorProcess(float originalSpeed)
+    {
+        StartCooldown("anchor", anchorTime, anchorTimeText); // Start anchortimer
+        yield return new WaitForSeconds(anchorTime);
+        speed = originalSpeed; // Restore original speed
+        StartCooldown("anchorCooldown", anchorCooldownTime, anchorCooldownText); // Start cooldown after anchoring
+    }
+
+    // Start a cooldown for an action
+    void StartCooldown(string key, float duration, TMP_Text uiText)
+    {
+        cooldowns[key] = duration;
+        if(!isCooldownActive) StartCoroutine(HandleCooldowns()); // Start cooldown coroutine if not running
+    }
+
+    // General coroutin to handle all active cooldowns
+    IEnumerator HandleCooldowns()
+    {
+        isCooldownActive = true; // Set the cooldown process to active
+        // Loop as long as there are active cooldowns
+        while (cooldowns.Count > 0)
+        {
+            List<string> keys = new List<string>(cooldowns.Keys);
+            foreach (var key in keys)
+            {
+                cooldowns[key] -= 0.1f; // Reduce coolown time
+                // Remove a cooldown if time is expired
+                if (cooldowns[key] <= 0)
+                {
+                    cooldowns.Remove(key);
+                    UpdateCooldownUI(key, ""); // Clear cooldown UI
+                }
+                else
+                {
+                    UpdateCooldownUI(key, $"Cooldown: {cooldowns[key]:F1}s"); // Update Ui with remaining time
+                }
+            }
+            yield return new WaitForSeconds(0.1f);
+        }
+        isCooldownActive = false; // No more active cooldowns
+    }
+
+    // Update cooldown UI elements based on cooldown type
+    void UpdateCooldownUI(string key, string text)
+    {
+        if (key == "speed") speedCooldownText.text = text;
+        else if (key == "direction") directionCooldownText.text = text;
+        else if (key == "anchor") anchorTimeText.text = text;
+        else if (key == "anchorCooldown") anchorCooldownText.text = text;
+    }
 }

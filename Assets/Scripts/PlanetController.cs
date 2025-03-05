@@ -14,17 +14,26 @@ public class PlanetController : MonoBehaviour
     // Component references
     private PlanetOrbit orbitComponent;
     private PlanetVisuals visualsComponent;
+    private PlanetGravity gravityComponent;
+    private DebrisCollector collectorComponent;
 
     private void Awake()
     {
         // Get references to attached components
         orbitComponent = GetComponent<PlanetOrbit>();
         visualsComponent = GetComponent<PlanetVisuals>();
+        gravityComponent = GetComponent<PlanetGravity>();
+        collectorComponent = GetComponent<DebrisCollector>();
 
         // Ensure we have the required components
         if (orbitComponent == null)
         {
             Debug.LogError("PlanetOrbit component is missing from planet GameObject!");
+        }
+        
+        if (gravityComponent == null)
+        {
+            Debug.LogError("PlanetGravity component is missing from planet GameObject!");
         }
     }
 

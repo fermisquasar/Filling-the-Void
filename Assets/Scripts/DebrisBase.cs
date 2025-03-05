@@ -6,7 +6,7 @@ using UnityEngine;
 public class DebrisBase : MonoBehaviour
 {
     [Header("Physical Properties")]
-    [SerializeField] protected float mass = 1.0f;
+    [SerializeField] public float mass = 1.0f;
     [SerializeField] protected float size = 1.0f;
     [SerializeField] protected float drag = 0.05f;
     [SerializeField] protected float angularDrag = 0.05f;
@@ -18,6 +18,10 @@ public class DebrisBase : MonoBehaviour
     [Header("Visual")]
     [SerializeField] protected Color debrisColor = Color.white;
     [SerializeField] protected bool showDebrisType = true;
+
+    [Header("Collision Properties")]
+    [SerializeField] protected float bounciness = 0.5f;  // How bouncy the debris is
+    [SerializeField] protected float friction = 0.2f;    // Friction coefficient for collisions
 
     // Reference to the rigidbody component
     protected Rigidbody2D rb;
@@ -49,9 +53,6 @@ public class DebrisBase : MonoBehaviour
         rb.mass = mass;
         rb.linearDamping = drag;
         rb.angularDamping = angularDrag;
-
-        // Ensure debris has the correct tag for gravity detection
-        gameObject.tag = "Debris";
         
         // Apply size to transform
         transform.localScale = new Vector3(size, size, 1.0f);
@@ -61,6 +62,26 @@ public class DebrisBase : MonoBehaviour
         {
             spriteRenderer.color = debrisColor;
         }
+
+        // Apply physical properties to the rigidbody
+        rb.mass = mass;
+        rb.linearDamping = drag;
+        rb.angularDamping = angularDrag;
+        
+        // Configure physics material for collision properties
+        PhysicsMaterial2D physicsMaterial = new PhysicsMaterial2D();
+        physicsMaterial.bounciness = bounciness;
+        physicsMaterial.friction = friction;
+        
+        // Apply physics material to collider
+        Collider2D collider = GetComponent<Collider2D>();
+        if (collider != null)
+        {
+            collider.sharedMaterial = physicsMaterial;
+        }
+        
+        // Set the appropriate tag for all debris objects
+        gameObject.tag = "Debris";
     }
 
     protected virtual void Start()
@@ -95,14 +116,14 @@ public class DebrisBase : MonoBehaviour
         // Add some random rotation
         rb.angularVelocity = Random.Range(-90f, 90f);
     }
-
+    
     /// Handles despawning of debris when it leaves the field or is otherwise removed
     protected virtual void DespawnDebris()
     {
         // In a more advanced implementation, this would return the object to a pool
         Destroy(gameObject);
     }
-
+    
     /// Gets the user-friendly name of the debris type
     protected virtual string GetDebrisTypeName()
     {
